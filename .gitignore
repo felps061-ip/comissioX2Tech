@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Dependencias e artefatos locais do PyInstaller
+.vendor/
+build*/
+dist/
+*.spec
+*.log
+
+# Arquivos temporarios e planilhas geradas
+*.xlsx
+*.xls
+!requirements.txt
