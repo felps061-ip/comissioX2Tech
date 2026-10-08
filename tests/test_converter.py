@@ -9,6 +9,7 @@ from converter import (
     _contract_type,
     _detect_agreement,
     _detect_bank,
+    _finanto_contract_type,
     _parse_term_range,
     _parse_ticket_range,
     _parse_pan_percentage,
@@ -123,6 +124,23 @@ def test_banrisul_rules() -> None:
     )
 
 
+def test_banco_do_brasil_rules() -> None:
+    name = "BB MAIS CREDITO NAO CONSIGNADO REFIN LIQ TAB 13 A 96X"
+    assert _detect_bank(name) == "BANCO DO BRASIL"
+    assert _detect_agreement(name) == "CRÉDITO PESSOAL"
+    assert _product_name("", name, 4.75, 5.94, "BANCO DO BRASIL") == (
+        "BB MAIS CREDITO NAO CONSIGNADO REFIN LIQ TAB 4,75% À 5,94%"
+    )
+
+
+def test_finanto_rules() -> None:
+    assert _detect_bank("1036 FINANTO INSS NOVO 108X - TAXA 1,85%") == "FINANTO"
+    assert _finanto_contract_type("FINANTO INSS NOVO 108X") == "NOVO"
+    assert _finanto_contract_type("FINANTO INSS REFIN PRIME 108X") == "REFIN"
+    assert _finanto_contract_type("FINANTO INSS REFIN DA PORT PRIME 108X") == "REFIN DA PORT"
+    assert _finanto_contract_type("FINANTO INSS PORTABILIDADE 96 A 108X") == "PORTABILIDADE"
+
+
 def test_create_margin_variant() -> None:
     source = [None] * 41
     source[2] = "SAFRA"
@@ -140,6 +158,9 @@ def test_create_margin_variant() -> None:
     assert not _should_create_margin_variant(source)
 
     source[2] = "NEO CREDITO"
+    assert not _should_create_margin_variant(source)
+
+    source[2] = "FINANTO"
     assert not _should_create_margin_variant(source)
 
 

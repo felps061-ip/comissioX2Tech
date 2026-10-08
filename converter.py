@@ -96,6 +96,8 @@ def _read_bevi_html_table(input_path: Path) -> Iterable[pd.Series]:
             raise ValueError("Não encontrei nenhuma tabela no arquivo informado.")
         df = tables[0]
 
+    if _is_finanto_dataframe(df):
+        return df[df["Banco"].astype(str).str.contains("FINANTO", case=False, na=False)].iterrows()
     if _is_pan_dataframe(df):
         # The PAN files interleave commission records with descriptive rows.
         df = df[df["Banco"].astype(str).str.contains("PAN", case=False, na=False)]
@@ -111,6 +113,8 @@ def _convert_row(index_and_row: tuple[int, pd.Series], start_date: str | None) -
     _, row = index_and_row
     if _is_neo_row(row):
         return _convert_neo_row(row, start_date)
+    if _is_finanto_row(row):
+        return _convert_finanto_row(row, start_date)
     if _is_pan_row(row):
         return _convert_pan_row(row, start_date)
 
@@ -176,6 +180,14 @@ def _is_pan_dataframe(df: pd.DataFrame) -> bool:
 
 def _is_pan_row(row: pd.Series) -> bool:
     return {"Banco", "Tabela", "Comissionamento", "Prazo", "Flat Repassada"}.issubset(row.index)
+
+
+def _is_finanto_dataframe(df: pd.DataFrame) -> bool:
+    return _is_pan_dataframe(df) and df["Banco"].astype(str).str.contains("FINANTO", case=False, na=False).any()
+
+
+def _is_finanto_row(row: pd.Series) -> bool:
+    return _is_pan_row(row) and "FINANTO" in _normalize_text(row["Banco"])
 
 
 def _is_neo_dataframe(df: pd.DataFrame) -> bool:
@@ -320,6 +332,59 @@ def _convert_pan_row(row: pd.Series, start_date: str | None) -> list[object | No
     ]
 
 
+def _convert_finanto_row(row: pd.Series, start_date: str | None) -> list[object | None]:
+    if not start_date:
+        raise ValueError("A tabela da FINANTO não possui data de vigência. Informe o início da vigência.")
+
+    source_name = _clean_text(row["Tabela"])
+    rate_initial, rate_final = _parse_pan_rates(source_name)
+    company_upfront = _parse_pan_percentage(row["Flat Repassada"])
+
+    return [
+        None,
+        None,
+        "FINANTO",
+        _detect_agreement(source_name),
+        _clean_pan_product_name(source_name),
+        None,
+        None,
+        _parse_date(start_date),
+        None,
+        *_parse_term_range(row["Prazo"]),
+        _finanto_contract_type(source_name),
+        "DIGITAL",
+        None,
+        None,
+        None,
+        18,
+        999,
+        0,
+        999999,
+        "BRUTO" if "BRUTO" in _normalize_text(row["Comissionamento"]) else "LÍQUIDO",
+        _format_rate(rate_initial),
+        _format_rate(rate_final),
+        _format_rate(company_upfront) if company_upfront is not None else None,
+        None,
+        None,
+        _format_percentage(company_upfront * 0.45, places=4) if company_upfront is not None else None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    ]
+
+
 def _product_name(
     bank_description: str,
     source_name: str,
@@ -332,6 +397,8 @@ def _product_name(
         return name_without_term
     if bank == "SAFRA":
         return f"{bank_description} {name_without_term}"
+    if bank == "BANCO DO BRASIL":
+        return f"{name_without_term} {_format_rate(rate_initial)}% À {_format_rate(rate_final)}%"
     return (
         f"{bank_description} {name_without_term} "
         f"{_format_rate(rate_initial)}% À {_format_rate(rate_final)}%"
@@ -401,8 +468,23 @@ def _pan_contract_type(source_name: str) -> str:
     raise ValueError(f"Operação PAN não identificada no nome da tabela: {source_name}")
 
 
+def _finanto_contract_type(source_name: str) -> str:
+    normalized = _normalize_text(source_name)
+    if "REFIN DA PORT" in normalized:
+        return "REFIN DA PORT"
+    if "REFIN" in normalized:
+        return "REFIN"
+    if "NOVO" in normalized:
+        return "NOVO"
+    if "PORTABILIDADE" in normalized:
+        return "PORTABILIDADE"
+    raise ValueError(f"Operação FINANTO não identificada no nome da tabela: {source_name}")
+
+
 def _detect_agreement(source_name: str) -> str:
     normalized = _normalize_text(source_name)
+    if "CREDITO NAO CONSIGNADO" in normalized:
+        return "CRÉDITO PESSOAL"
     for agreement in ("INSS", "SIAPE"):
         if agreement in normalized:
             return agreement
@@ -413,6 +495,8 @@ def _detect_agreement(source_name: str) -> str:
 
 def _detect_bank(source_name: str) -> str:
     normalized = _normalize_text(source_name)
+    if "BANCO DO BRASIL" in normalized or re.search(r"\bBB\b", normalized):
+        return "BANCO DO BRASIL"
     if "DIGIO" in normalized:
         return "DIGIO"
     if "SAFRA" in normalized:
@@ -423,6 +507,8 @@ def _detect_bank(source_name: str) -> str:
         return "BANRISUL"
     if "PAN" in normalized:
         return "PAN"
+    if "FINANTO" in normalized:
+        return "FINANTO"
     if "C6" in normalized:
         return "C6BANK"
     raise ValueError(f"Banco não identificado no nome da tabela: {source_name}")
@@ -445,7 +531,7 @@ def _should_create_margin_variant(row: list[object | None]) -> bool:
     bank = _normalize_text(row[2])
     contract_type = _normalize_text(row[11])
     return (
-        bank not in {"DIGIO", "BANCO DO BRASIL", "BB", "NEO CREDITO"}
+        bank not in {"DIGIO", "BANCO DO BRASIL", "BB", "NEO CREDITO", "FINANTO"}
         and "REFIN" in contract_type
         and "MARGEM" not in contract_type
     )

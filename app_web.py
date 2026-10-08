@@ -290,7 +290,7 @@ HTML = r"""<!doctype html>
           </div>
 
           <label for="inicio">Início da vigência</label>
-          <input id="inicio" name="inicio" type="text" placeholder="Opcional: dd/mm/aaaa. Para PAN e NEO, informe a vigência." />
+          <input id="inicio" name="inicio" type="text" placeholder="Opcional: dd/mm/aaaa. Para PAN, NEO e FINANTO, informe a vigência." />
 
           <div class="actions">
             <button id="submit" class="primary" type="submit">Converter para 2TECH</button>
