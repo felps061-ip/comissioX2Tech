@@ -131,6 +131,7 @@ def test_banco_do_brasil_rules() -> None:
     assert _product_name("", name, 4.75, 5.94, "BANCO DO BRASIL") == (
         "BB MAIS CREDITO NAO CONSIGNADO REFIN LIQ TAB 4,75% À 5,94%"
     )
+    assert _detect_agreement("BB MAIS CONSIGNADO DO TRABALHADOR NOVO TAB 13 A 96X") == "PRIVADO/CLT"
 
 
 def test_finanto_rules() -> None:

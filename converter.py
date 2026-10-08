@@ -128,6 +128,7 @@ def _convert_row(index_and_row: tuple[int, pd.Series], start_date: str | None) -
     company_upfront = _as_float(row.iloc[8])
     bank = _detect_bank(source_name)
     product_name = _product_name(_clean_text(row.iloc[1]), source_name, rate_initial, rate_final, bank)
+    repasse_one = None if bank == "BANCO DO BRASIL" else _format_percentage(company_upfront * 0.45, places=4)
 
     return [
         None,
@@ -156,7 +157,7 @@ def _convert_row(index_and_row: tuple[int, pd.Series], start_date: str | None) -
         _format_rate(company_upfront),
         None,
         None,
-        _format_percentage(company_upfront * 0.45, places=4),
+        repasse_one,
         None,
         None,
         None,
@@ -485,6 +486,8 @@ def _detect_agreement(source_name: str) -> str:
     normalized = _normalize_text(source_name)
     if "CREDITO NAO CONSIGNADO" in normalized:
         return "CRÉDITO PESSOAL"
+    if "CONSIGNADO DO TRABALHADOR" in normalized:
+        return "PRIVADO/CLT"
     for agreement in ("INSS", "SIAPE"):
         if agreement in normalized:
             return agreement
