@@ -578,6 +578,17 @@ def _parse_ticket_range(source_name: str) -> tuple[int, int]:
     normalized = _normalize_text(source_name)
     default = (0, 999999)
 
+    contract_range_match = re.search(
+        r"VALOR CONTRATO\s+(\d+(?:[,.]\d+)?)\s*(?:A|ATE)\s*(\d+(?:[,.]\d+)?)",
+        normalized,
+    )
+    if contract_range_match:
+        return _money_token_to_value(contract_range_match.group(1)), _money_token_to_value(contract_range_match.group(2))
+
+    contract_min_match = re.search(r"VALOR CONTRATO\s+(?:ACIMA|MAIOR)\s+DE\s+(\d+(?:[,.]\d+)?)", normalized)
+    if contract_min_match:
+        return _money_token_to_value(contract_min_match.group(1)), default[1]
+
     range_match = re.search(
         r"(?:\bTKT\s*)?(\d+(?:[,.]\d+)?)\s*K\s*(?:A|ATE|ATÉ|-)\s*(\d+(?:[,.]\d+)?)\s*K",
         normalized,
@@ -607,10 +618,15 @@ def _parse_ticket_range(source_name: str) -> tuple[int, int]:
 
 
 def _money_token_to_number(value: str, has_k: bool = False) -> int:
-    number = float(value.replace(",", "."))
+    number = _money_token_to_value(value)
     if has_k:
         number *= 1000
     return int(round(number))
+
+
+def _money_token_to_value(value: str) -> int | float:
+    number = float(value.replace(",", "."))
+    return int(number) if number.is_integer() else number
 
 
 def _normalize_text(value: object) -> str:
@@ -691,8 +707,11 @@ def _write_workbook(rows: list[list[object | None]], output_path: Path) -> None:
 
     for row_idx in range(2, sheet.max_row + 1):
         sheet.cell(row_idx, 8).number_format = "yyyy-mm-dd"
-        for col_idx in (10, 11, 17, 18, 19, 20):
+        for col_idx in (10, 11, 17, 18):
             sheet.cell(row_idx, col_idx).number_format = "0"
+        for col_idx in (19, 20):
+            value = sheet.cell(row_idx, col_idx).value
+            sheet.cell(row_idx, col_idx).number_format = "0.00" if isinstance(value, float) and not value.is_integer() else "0"
         for col_idx in (22, 23, 24):
             sheet.cell(row_idx, col_idx).number_format = "0.00"
         sheet.cell(row_idx, 27).number_format = "0.0000"

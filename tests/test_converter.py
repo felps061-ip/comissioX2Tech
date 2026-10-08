@@ -68,6 +68,8 @@ def test_parse_ticket_range() -> None:
     assert _parse_ticket_range("C6 BANK DIGITAL INSS REFIN WEB 108X") == (0, 999999)
     assert _parse_ticket_range("DIGIO INSS REFIN LIQ TKT 1500 1,80 TAB 8814 DIG 108X") == (1500, 999999)
     assert _parse_ticket_range("DAYCOVAL INSS NOVO TAB TKT 15K DIG 108X") == (15000, 999999)
+    assert _parse_ticket_range("BB MAIS CONSIGNADO DO TRABALHADOR NOVO TAB VALOR CONTRATO ACIMA DE 2000.00 36 A 96X") == (2000, 999999)
+    assert _parse_ticket_range("BB MAIS CONSIGNADO DO TRABALHADOR NOVO TAB VALOR CONTRATO 1.00 A 1999.99 18 A 35X") == (1, 1999.99)
 
 
 def test_clean_product_base_name_removes_tx_range() -> None:
